@@ -9,6 +9,11 @@ import {
   ForumChannel,
   Role,
   ColorResolvable,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ButtonInteraction,
+  GuildMember,
 } from 'discord.js';
 import { Command } from '../types';
 
@@ -137,26 +142,46 @@ const command: Command = {
         },
       ];
 
+      const memberRole  = guild.roles.cache.find(r => r.name === '👤 Membre');
+
       for (const section of structure) {
         let category = guild.channels.cache.find(
           c => c.type === ChannelType.GuildCategory && c.name === section.category
         ) as CategoryChannel | undefined;
 
-        if (!category) {
-          const permissionOverwrites = section.category === '🔒 MODÉRATION'
-            ? [
-                { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
-                ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
-                ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
-              ]
-            : [];
+        let permissionOverwrites: any[] = [];
+        if (section.category === '📢 INFORMATIONS') {
+          permissionOverwrites = [
+            { id: everyoneRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] },
+            ...(memberRole ? [{ id: memberRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] }] : []),
+            ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] : []),
+            ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] : []),
+          ];
+        } else if (section.category === '🔒 MODÉRATION') {
+          permissionOverwrites = [
+            { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
+            ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+            ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+          ];
+        } else {
+          permissionOverwrites = [
+            { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
+            ...(memberRole ? [{ id: memberRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+            ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+            ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+          ];
+        }
 
+        if (!category) {
           category = await guild.channels.create({
             name: section.category,
             type: ChannelType.GuildCategory,
             permissionOverwrites,
           }) as CategoryChannel;
           logs.push(`✅ Catégorie créée : ${section.category}`);
+        } else {
+          await category.edit({ permissionOverwrites });
+          logs.push(`⚙️ Perms catégorie mises à jour : ${section.category}`);
         }
 
         for (const ch of section.channels) {
@@ -257,11 +282,48 @@ const command: Command = {
         logs.push('✅ Message de bienvenue envoyé');
       }
 
+      // ============= RÈGLEMENT & BOUTON RÔLE =============
+      const reglementChannel = guild.channels.cache.find(c => c.name === '📜・règlement') as TextChannel | undefined;
+      if (reglementChannel) {
+        try {
+          const messages = await reglementChannel.messages.fetch({ limit: 50 });
+          if (messages.size > 0) {
+            await reglementChannel.bulkDelete(messages);
+          }
+        } catch (e) {}
+
+        const rulesEmbed = new EmbedBuilder()
+          .setColor(0x5865F2)
+          .setTitle('📜 Règlement du serveur SR Editer')
+          .setDescription(
+            'Bienvenue sur le serveur officiel SR Editer !\n\n' +
+            'Pour accéder à l\'intégralité du serveur et pouvoir interagir avec la communauté, veuillez prendre connaissance et accepter les règles suivantes :\n\n' +
+            '**1. Respect & Entraide**\nLe respect mutuel est obligatoire. Les insultes, provocations, discriminations et comportements toxiques ne seront pas tolérés.\n\n' +
+            '**2. Pas de Spam ou Publicité**\nLe spam, les mentions inutiles et la publicité non sollicitée (en DM ou salons) sont interdits.\n\n' +
+            '**3. Contenu Approprié**\nGardez vos discussions constructives et professionnelles. Pas de contenu NSFW ou choquant.\n\n' +
+            '**4. Support & Aide**\nPour toute question ou bug avec l\'application SR Editer, utilisez les forums dédiés ou ouvrez un ticket dans **#🎫・ouvrir-un-ticket**.\n\n' +
+            '**👉 Cliquez sur le bouton vert ci-dessous pour accepter le règlement, obtenir le rôle 👤 Membre et débloquer tous les salons !**'
+          )
+          .setFooter({ text: 'SR Editer Team' })
+          .setTimestamp();
+
+        const acceptButton = new ButtonBuilder()
+          .setCustomId('setup_accept')
+          .setLabel('Accepter le règlement')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('✅');
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(acceptButton);
+
+        await reglementChannel.send({ embeds: [rulesEmbed], components: [row] });
+        logs.push('✅ Message du règlement envoyé avec bouton');
+      }
+
       // ============= RÉSUMÉ =============
       const embed = new EmbedBuilder()
         .setColor(0x2ECC71)
         .setTitle('✅ Setup SR Editer terminé !')
-        .setDescription(`**${logs.filter(l => l.startsWith('✅')).length}** éléments créés\n**${logs.filter(l => l.startsWith('⏭️')).length}** déjà existants`)
+        .setDescription(`**${logs.filter(l => l.startsWith('✅')).length}** éléments créés/configurés\n**${logs.filter(l => l.startsWith('⚙️')).length}** perms mises à jour\n**${logs.filter(l => l.startsWith('⏭️')).length}** déjà existants`)
         .addFields({ name: '📋 Détails', value: logs.slice(0, 20).join('\n') || 'Aucun' })
         .setTimestamp();
 
@@ -272,6 +334,37 @@ const command: Command = {
       await interaction.editReply({
         content: `❌ Erreur pendant le setup: ${error instanceof Error ? error.message : String(error)}`,
       });
+    }
+  },
+
+  async handleButton(interaction: ButtonInteraction) {
+    if (interaction.customId === 'setup_accept') {
+      await interaction.deferReply({ ephemeral: true });
+      const guild = interaction.guild!;
+      const member = interaction.member as GuildMember;
+      
+      const memberRole = guild.roles.cache.find(r => r.name === '👤 Membre');
+      if (!memberRole) {
+        await interaction.editReply({ content: '❌ Le rôle de Membre n\'existe pas sur ce serveur. Veuillez contacter un administrateur.' });
+        return;
+      }
+
+      if (member.roles.cache.has(memberRole.id)) {
+        await interaction.editReply({ content: 'ℹ️ Vous possédez déjà le rôle Membre !' });
+        return;
+      }
+
+      try {
+        await member.roles.add(memberRole);
+        const nouveauRole = guild.roles.cache.find(r => r.name === '🆕 Nouveau');
+        if (nouveauRole && member.roles.cache.has(nouveauRole.id)) {
+          await member.roles.remove(nouveauRole);
+        }
+        await interaction.editReply({ content: '✅ Règlement accepté ! Vous avez maintenant le rôle **Membre** et accès à l\'ensemble du serveur. Bienvenue ! 🎉' });
+      } catch (err) {
+        console.error('Error granting member role:', err);
+        await interaction.editReply({ content: '❌ Une erreur est survenue lors de l\'attribution du rôle.' });
+      }
     }
   },
 };
