@@ -146,6 +146,7 @@ const command: Command = {
       ];
 
       const memberRole  = guild.roles.cache.find(r => r.name === '👤 Membre');
+      const nouveauRole = guild.roles.cache.find(r => r.name === '🆕 Nouveau');
 
       for (const section of structure) {
         let category = guild.channels.cache.find(
@@ -156,6 +157,7 @@ const command: Command = {
         if (section.category === '📢 INFORMATIONS') {
           permissionOverwrites = [
             { id: everyoneRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] },
+            ...(nouveauRole ? [{ id: nouveauRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] }] : []),
             ...(memberRole ? [{ id: memberRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] }] : []),
             ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] : []),
             ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] : []),
@@ -169,6 +171,7 @@ const command: Command = {
         } else {
           permissionOverwrites = [
             { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
+            ...(nouveauRole ? [{ id: nouveauRole.id, deny: [PermissionFlagsBits.ViewChannel] }] : []),
             ...(memberRole ? [{ id: memberRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
             ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
             ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
