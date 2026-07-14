@@ -72,6 +72,27 @@ const command: Command = {
 
   async handleButton(interaction: ButtonInteraction) {
     const [, action, type] = interaction.customId.split('_');
+    
+    if (action === 'close') {
+      const channel = interaction.channel as TextChannel;
+      if (!channel.name.startsWith(TICKET_PREFIX)) {
+        await interaction.reply({ content: '❌ Ce channel n\'est pas un ticket.', ephemeral: true });
+        return;
+      }
+
+      const ticketData = getTicket(channel.id);
+      if (ticketData) closeTicket(channel.id);
+
+      const embed = new EmbedBuilder()
+        .setColor(0xE74C3C)
+        .setTitle('🔒 Ticket fermé')
+        .setDescription(`Fermé par ${interaction.user}. Ce channel sera supprimé dans 5 secondes.`);
+
+      await interaction.reply({ embeds: [embed] });
+      setTimeout(() => channel.delete().catch(console.error), 5000);
+      return;
+    }
+
     if (action !== 'open') return;
 
     const guild = interaction.guild!;
