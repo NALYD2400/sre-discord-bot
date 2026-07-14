@@ -166,44 +166,70 @@ const command: Command = {
             continue;
           }
 
-          if (ch.type === ChannelType.GuildForum) {
-            await guild.channels.create({
-              name: ch.name,
-              type: ChannelType.GuildForum,
-              parent: category.id,
-              topic: ch.topic,
-            });
-          } else if (ch.type === ChannelType.GuildStageVoice) {
-            await guild.channels.create({
-              name: ch.name,
-              type: ChannelType.GuildStageVoice,
-              parent: category.id,
-            });
-          } else if (ch.type === ChannelType.GuildVoice) {
-            await guild.channels.create({
-              name: ch.name,
-              type: ChannelType.GuildVoice,
-              parent: category.id,
-            });
-          } else {
-            const permissionOverwrites = ch.private
-              ? [
-                  { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
-                  ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
-                  ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
-                ]
-              : [];
+          try {
+            if (ch.type === ChannelType.GuildForum) {
+              await guild.channels.create({
+                name: ch.name,
+                type: ChannelType.GuildForum,
+                parent: category.id,
+                topic: ch.topic,
+              });
+            } else if (ch.type === ChannelType.GuildStageVoice) {
+              await guild.channels.create({
+                name: ch.name,
+                type: ChannelType.GuildStageVoice,
+                parent: category.id,
+              });
+            } else if (ch.type === ChannelType.GuildVoice) {
+              await guild.channels.create({
+                name: ch.name,
+                type: ChannelType.GuildVoice,
+                parent: category.id,
+              });
+            } else {
+              const permissionOverwrites = ch.private
+                ? [
+                    { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
+                    ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+                    ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+                  ]
+                : [];
 
-            await guild.channels.create({
-              name: ch.name,
-              type: ChannelType.GuildText,
-              parent: category.id,
-              topic: ch.topic,
-              rateLimitPerUser: ch.slowmode ?? 0,
-              permissionOverwrites: permissionOverwrites.length ? permissionOverwrites : undefined,
-            });
+              await guild.channels.create({
+                name: ch.name,
+                type: ChannelType.GuildText,
+                parent: category.id,
+                topic: ch.topic,
+                rateLimitPerUser: ch.slowmode ?? 0,
+                permissionOverwrites: permissionOverwrites.length ? permissionOverwrites : undefined,
+              });
+            }
+            logs.push(`✅ Channel créé : ${ch.name}`);
+          } catch (err) {
+            // Fallback for non-community servers
+            try {
+              if (ch.type === ChannelType.GuildForum) {
+                await guild.channels.create({
+                  name: ch.name,
+                  type: ChannelType.GuildText,
+                  parent: category.id,
+                  topic: ch.topic,
+                });
+                logs.push(`⚠️ ${ch.name} (créé en salon texte car Forum désactivé)`);
+              } else if (ch.type === ChannelType.GuildStageVoice) {
+                await guild.channels.create({
+                  name: ch.name,
+                  type: ChannelType.GuildVoice,
+                  parent: category.id,
+                });
+                logs.push(`⚠️ ${ch.name} (créé en salon vocal car Stage désactivé)`);
+              } else {
+                throw err;
+              }
+            } catch (fallbackErr) {
+              logs.push(`❌ Échec création ${ch.name}`);
+            }
           }
-          logs.push(`✅ Channel créé : ${ch.name}`);
         }
       }
 
