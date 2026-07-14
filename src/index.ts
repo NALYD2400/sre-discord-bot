@@ -7,7 +7,7 @@ import { Command } from './types';
 import { startHealthServer } from './health';
 
 // Démarrer le serveur HTTP pour UptimeRobot (Render free tier)
-startHealthServer(Number(process.env.PORT) || 3000);
+startHealthServer(Number(process.env.PORT) || 3000, client);
 
 
 // Load commands

@@ -32,12 +32,15 @@ const command: Command = {
     try {
       // ============= RÔLES =============
       const rolesConfig: { name: string; color: ColorResolvable; hoist: boolean; position: number }[] = [
-        { name: '👑 Fondateur',       color: '#FFD700', hoist: true,  position: 10 },
-        { name: '🔧 Administrateur',  color: '#E74C3C', hoist: true,  position: 9  },
-        { name: '🛡️ Modérateur',      color: '#E67E22', hoist: true,  position: 8  },
-        { name: '💻 Développeur',     color: '#3498DB', hoist: true,  position: 7  },
-        { name: '🎨 Designer',        color: '#9B59B6', hoist: true,  position: 6  },
-        { name: '🧪 Testeur Bêta',    color: '#1ABC9C', hoist: true,  position: 5  },
+        { name: '👑 Fondateur',       color: '#FFD700', hoist: true,  position: 13 },
+        { name: '🔧 Administrateur',  color: '#E74C3C', hoist: true,  position: 12 },
+        { name: '🛡️ Modérateur',      color: '#E67E22', hoist: true,  position: 11 },
+        { name: '💻 Développeur',     color: '#3498DB', hoist: true,  position: 10 },
+        { name: '🎨 Designer',        color: '#9B59B6', hoist: true,  position: 9  },
+        { name: '🧪 Testeur Bêta',    color: '#1ABC9C', hoist: true,  position: 8  },
+        { name: '💎 SR Premium',      color: '#FF69B4', hoist: true,  position: 7  },
+        { name: '🚀 SR Pro',          color: '#1E90FF', hoist: true,  position: 6  },
+        { name: '⚡ SR Standard',     color: '#00FFFF', hoist: true,  position: 5  },
         { name: '💬 Support',         color: '#2ECC71', hoist: false, position: 4  },
         { name: '⭐ Membre Actif',    color: '#F39C12', hoist: false, position: 3  },
         { name: '👤 Membre',          color: '#95A5A6', hoist: false, position: 2  },
