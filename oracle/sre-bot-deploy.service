@@ -1,0 +1,11 @@
+# Service one-shot déclenché par le timer : met à jour le bot depuis GitHub
+[Unit]
+Description=Deploy/update SR Editer bot depuis GitHub
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/sr-discord-bot
+ExecStart=/bin/bash /home/ubuntu/sr-discord-bot/scripts/deploy.sh
+# Pas de Restart : c'est un one-shot piloté par le timer

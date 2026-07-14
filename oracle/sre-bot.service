@@ -1,0 +1,15 @@
+[Unit]
+Description=SR Editer Discord Bot
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/sr-discord-bot
+ExecStart=/usr/bin/node /home/ubuntu/sr-discord-bot/dist/index.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

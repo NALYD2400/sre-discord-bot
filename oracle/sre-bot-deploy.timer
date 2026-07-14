@@ -1,0 +1,11 @@
+# Timer systemd : lance le deploy toutes les 5 minutes (auto-update depuis GitHub)
+[Unit]
+Description=Auto-update SR Editer bot toutes les 5 min
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Unit=sre-bot-deploy.service
+
+[Install]
+WantedBy=timers.target
