@@ -142,6 +142,45 @@ const command: Command = {
         channel.type === ChannelType.GuildCategory && channel.name === categoryName
       )) issues.push(`Catégorie manquante : ${categoryName}`);
     }
+
+    const memberRole = guild.roles.cache.find((role) => role.name === '👤 Membre');
+    const newRole = guild.roles.cache.find((role) => role.name === '🆕 Nouveau');
+    const moderatorRole = guild.roles.cache.find((role) => role.name === '🛡️ Modérateur');
+    const categoryRoles = [adminRole, moderatorRole].filter((role) => role !== undefined);
+    for (const categoryName of REQUIRED_CATEGORIES) {
+      const category = guild.channels.cache.find((channel) =>
+        channel.type === ChannelType.GuildCategory && channel.name === categoryName
+      );
+      if (!category || category.type !== ChannelType.GuildCategory) continue;
+
+      const everyoneOverwrite = category.permissionOverwrites.cache.get(guild.roles.everyone.id);
+      const isInformation = categoryName === '📢 INFORMATIONS';
+      const isModeration = categoryName === '🔒 MODÉRATION';
+      if (isInformation) {
+        if (!everyoneOverwrite?.allow.has(PermissionFlagsBits.ViewChannel)
+          || !everyoneOverwrite.deny.has(PermissionFlagsBits.SendMessages)) {
+          issues.push(`${categoryName} : @everyone doit voir sans pouvoir écrire`);
+        }
+      } else if (!everyoneOverwrite?.deny.has(PermissionFlagsBits.ViewChannel)) {
+        issues.push(`${categoryName} : accès @everyone non bloqué`);
+      }
+
+      for (const staffRole of categoryRoles) {
+        if (!category.permissionOverwrites.cache.get(staffRole.id)?.allow.has(PermissionFlagsBits.ViewChannel)) {
+          issues.push(`${categoryName} : ${staffRole.name} ne peut pas voir`);
+        }
+      }
+
+      if (!isInformation && !isModeration) {
+        if (memberRole && !category.permissionOverwrites.cache.get(memberRole.id)?.allow.has(PermissionFlagsBits.ViewChannel)) {
+          issues.push(`${categoryName} : accès Membre manquant`);
+        }
+        if (newRole && !category.permissionOverwrites.cache.get(newRole.id)?.deny.has(PermissionFlagsBits.ViewChannel)) {
+          issues.push(`${categoryName} : accès Nouveau non bloqué`);
+        }
+      }
+    }
+
     for (const channelName of REQUIRED_CHANNELS) {
       if (!guild.channels.cache.some((channel) => channel.name === channelName)) {
         issues.push(`Salon manquant : ${channelName}`);
