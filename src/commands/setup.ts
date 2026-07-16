@@ -37,7 +37,12 @@ const command: Command = {
         hoist: boolean;
         permissions?: bigint[];
       }[] = [
-        { name: '👑 Fondateur',       color: '#FFD700', hoist: true },
+        {
+          name: '👑 Fondateur',
+          color: '#FFD700',
+          hoist: true,
+          permissions: [PermissionFlagsBits.Administrator],
+        },
         {
           name: '🔧 Administrateur',
           color: '#E74C3C',
@@ -59,16 +64,15 @@ const command: Command = {
             PermissionFlagsBits.ModerateMembers,
           ],
         },
-        { name: '💻 Développeur',     color: '#3498DB', hoist: true },
-        { name: '🎨 Designer',        color: '#9B59B6', hoist: true },
-        { name: '🧪 Testeur Bêta',    color: '#1ABC9C', hoist: true },
-        { name: '💎 SR Premium',      color: '#FF69B4', hoist: true },
-        { name: '🚀 SR Pro',          color: '#1E90FF', hoist: true },
-        { name: '⚡ SR Standard',     color: '#00FFFF', hoist: true },
-        { name: '💬 Support',         color: '#2ECC71', hoist: false },
-        { name: '⭐ Membre Actif',    color: '#F39C12', hoist: false },
-        { name: '👤 Membre',          color: '#95A5A6', hoist: false },
-        { name: '🆕 Nouveau',         color: '#7F8C8D', hoist: false },
+        { name: '💻 Développeur',     color: '#3498DB', hoist: true, permissions: [] },
+        { name: '🎨 Designer',        color: '#9B59B6', hoist: true, permissions: [] },
+        { name: '🧪 Testeur Bêta',    color: '#1ABC9C', hoist: true, permissions: [] },
+        { name: '💎 SR Premium',      color: '#FF69B4', hoist: true, permissions: [] },
+        { name: '🚀 SR Pro',          color: '#1E90FF', hoist: true, permissions: [] },
+        { name: '⚡ SR Standard',     color: '#00FFFF', hoist: true, permissions: [] },
+        { name: '💬 Support',         color: '#2ECC71', hoist: false, permissions: [] },
+        { name: '⭐ Membre Actif',    color: '#F39C12', hoist: false, permissions: [] },
+        { name: '👤 Membre',          color: '#95A5A6', hoist: false, permissions: [] },
       ];
 
       for (const roleConf of rolesConfig) {
@@ -96,18 +100,54 @@ const command: Command = {
       const adminRole   = guild.roles.cache.find(r => r.name === '🔧 Administrateur');
       const modRole     = guild.roles.cache.find(r => r.name === '🛡️ Modérateur');
       const everyoneRole = guild.roles.everyone;
+      const obsoleteNewRole = guild.roles.cache.find(r => r.name === '🆕 Nouveau');
+      if (obsoleteNewRole?.editable) {
+        await obsoleteNewRole.delete('Rôle Nouveau supprimé : validation par règlement obligatoire');
+        logs.push('✅ Ancien rôle Nouveau supprimé');
+      } else if (obsoleteNewRole) {
+        logs.push('⚠️ Le rôle Nouveau doit être supprimé manuellement (hiérarchie du bot)');
+      }
+
+      const cleanedEveryonePermissions = everyoneRole.permissions.remove([
+        PermissionFlagsBits.Administrator,
+        PermissionFlagsBits.ManageGuild,
+        PermissionFlagsBits.ManageRoles,
+        PermissionFlagsBits.ManageChannels,
+        PermissionFlagsBits.KickMembers,
+        PermissionFlagsBits.BanMembers,
+        PermissionFlagsBits.ModerateMembers,
+        PermissionFlagsBits.ManageMessages,
+        PermissionFlagsBits.ManageWebhooks,
+        PermissionFlagsBits.MentionEveryone,
+        PermissionFlagsBits.CreateGuildExpressions,
+        PermissionFlagsBits.ManageGuildExpressions,
+      ]);
+      await everyoneRole.setPermissions(cleanedEveryonePermissions);
+      logs.push('⚙️ Permissions dangereuses retirées de @everyone');
 
       // ============= CATEGORIES & CHANNELS =============
       const structure: {
         category: string;
-        channels: { name: string; type: ChannelType; topic?: string; private?: boolean; slowmode?: number }[];
+        channels: {
+          name: string;
+          type: ChannelType;
+          topic?: string;
+          private?: boolean;
+          preAccept?: boolean;
+          slowmode?: number;
+        }[];
       }[] = [
         {
           category: '📢 INFORMATIONS',
           channels: [
             { name: '🏠・accueil',         type: ChannelType.GuildText,  topic: 'Bienvenue sur SR Editer !' },
             { name: '📣・annonces',         type: ChannelType.GuildText,  topic: 'Annonces officielles SR Editer' },
-            { name: '📜・règlement',        type: ChannelType.GuildText,  topic: 'Règles du serveur' },
+            {
+              name: '📜・règlement',
+              type: ChannelType.GuildText,
+              topic: 'Règles du serveur',
+              preAccept: true,
+            },
             { name: '🔄・mises-à-jour',    type: ChannelType.GuildText,  topic: 'Changelog et nouvelles versions' },
             { name: '🗺️・roadmap',         type: ChannelType.GuildText,  topic: 'Fonctionnalités prévues pour SR Editer' },
             { name: '🤝・partenariats',    type: ChannelType.GuildText,  topic: 'Nos partenaires officiels' },
@@ -180,7 +220,6 @@ const command: Command = {
       ];
 
       const memberRole  = guild.roles.cache.find(r => r.name === '👤 Membre');
-      const nouveauRole = guild.roles.cache.find(r => r.name === '🆕 Nouveau');
 
       for (const section of structure) {
         let category = guild.channels.cache.find(
@@ -190,8 +229,7 @@ const command: Command = {
         let permissionOverwrites: any[] = [];
         if (section.category === '📢 INFORMATIONS') {
           permissionOverwrites = [
-            { id: everyoneRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] },
-            ...(nouveauRole ? [{ id: nouveauRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] }] : []),
+            { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
             ...(memberRole ? [{ id: memberRole.id, allow: [PermissionFlagsBits.ViewChannel], deny: [PermissionFlagsBits.SendMessages] }] : []),
             ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] : []),
             ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] : []),
@@ -205,7 +243,6 @@ const command: Command = {
         } else {
           permissionOverwrites = [
             { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
-            ...(nouveauRole ? [{ id: nouveauRole.id, deny: [PermissionFlagsBits.ViewChannel] }] : []),
             ...(memberRole ? [{ id: memberRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
             ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
             ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
@@ -240,14 +277,41 @@ const command: Command = {
             }
 
             if ('setParent' in existing && typeof existing.setParent === 'function') {
-              await existing.setParent(category.id, { lockPermissions: !ch.private });
+              await existing.setParent(category.id, { lockPermissions: !ch.private && !ch.preAccept });
             }
-            if (ch.private && 'permissionOverwrites' in existing) {
-              await existing.permissionOverwrites.set([
+            if ((ch.private || ch.preAccept) && 'permissionOverwrites' in existing) {
+              const channelOverwrites = ch.preAccept
+                ? [
+                    {
+                      id: everyoneRole.id,
+                      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+                      deny: [
+                        PermissionFlagsBits.SendMessages,
+                        PermissionFlagsBits.SendMessagesInThreads,
+                        PermissionFlagsBits.CreatePublicThreads,
+                        PermissionFlagsBits.CreatePrivateThreads,
+                      ],
+                    },
+                    ...(memberRole ? [{
+                      id: memberRole.id,
+                      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+                      deny: [PermissionFlagsBits.SendMessages],
+                    }] : []),
+                    ...(adminRole ? [{
+                      id: adminRole.id,
+                      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+                    }] : []),
+                    ...(modRole ? [{
+                      id: modRole.id,
+                      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+                    }] : []),
+                  ]
+                : [
                 { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
                 ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
                 ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
-              ]);
+                  ];
+              await existing.permissionOverwrites.set(channelOverwrites);
             }
             logs.push(`⚙️ Channel vérifié : ${ch.name}`);
             continue;
@@ -274,13 +338,39 @@ const command: Command = {
                 parent: category.id,
               });
             } else {
-              const permissionOverwrites = ch.private
+              const permissionOverwrites = ch.preAccept
                 ? [
+                    {
+                      id: everyoneRole.id,
+                      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+                      deny: [
+                        PermissionFlagsBits.SendMessages,
+                        PermissionFlagsBits.SendMessagesInThreads,
+                        PermissionFlagsBits.CreatePublicThreads,
+                        PermissionFlagsBits.CreatePrivateThreads,
+                      ],
+                    },
+                    ...(memberRole ? [{
+                      id: memberRole.id,
+                      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+                      deny: [PermissionFlagsBits.SendMessages],
+                    }] : []),
+                    ...(adminRole ? [{
+                      id: adminRole.id,
+                      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+                    }] : []),
+                    ...(modRole ? [{
+                      id: modRole.id,
+                      allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
+                    }] : []),
+                  ]
+                : ch.private
+                  ? [
                     { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
                     ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
                     ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
-                  ]
-                : [];
+                    ]
+                  : [];
 
               await guild.channels.create({
                 name: ch.name,
@@ -318,6 +408,24 @@ const command: Command = {
             }
           }
         }
+      }
+
+      // Les salons Discord créés par défaut hors catégorie restent invisibles
+      // jusqu'à l'obtention du rôle Membre.
+      const ungroupedChannels = guild.channels.cache.filter((channel) =>
+        channel.type !== ChannelType.GuildCategory
+        && !channel.isThread()
+        && channel.parentId === null
+      );
+      for (const channel of ungroupedChannels.values()) {
+        if (!('permissionOverwrites' in channel)) continue;
+        await channel.permissionOverwrites.set([
+          { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
+          ...(memberRole ? [{ id: memberRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+          ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+          ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+        ]);
+        logs.push(`⚙️ Salon hors catégorie sécurisé : ${channel.name}`);
       }
 
       // ============= MESSAGE DE BIENVENUE =============
@@ -431,10 +539,6 @@ const command: Command = {
 
       try {
         await member.roles.add(memberRole);
-        const nouveauRole = guild.roles.cache.find(r => r.name === '🆕 Nouveau');
-        if (nouveauRole && member.roles.cache.has(nouveauRole.id)) {
-          await member.roles.remove(nouveauRole);
-        }
         await interaction.editReply({ content: '✅ Règlement accepté ! Vous avez maintenant le rôle **Membre** et accès à l\'ensemble du serveur. Bienvenue ! 🎉' });
       } catch (err) {
         console.error('Error granting member role:', err);

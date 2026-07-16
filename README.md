@@ -7,7 +7,7 @@ Bot Discord officiel de **SR Editer**, l'éditeur vidéo conçu pour les créate
 - 🏗️ **Setup automatique** du serveur (channels, rôles, forums, catégories)
 - 👋 **Bienvenue** automatique + auto-rôle pour les nouveaux membres
 - 🎫 **Système de tickets** (Bug / Question / Autre)
-- 🏅 **Système de grades** (Nouveau → Fondateur)
+- 🏅 **Système de grades** à partir de Membre, après acceptation du règlement
 - 🔨 **Modération** : ban, kick, mute/timeout, avertissements
 - 📋 **Commande d'aide** complète
 
@@ -79,6 +79,7 @@ et renvoie une erreur HTTP si Discord n'a pas pu appliquer les rôles. Quand
 | Commande | Description | Permission |
 |---|---|---|
 | `/setup` | Configure le serveur automatiquement | Admin |
+| `/audit` | Vérifie les rôles, salons et permissions | Admin |
 | `/ticket panel` | Envoie le panel de tickets | Admin |
 | `/ticket fermer` | Ferme un ticket ouvert | Tous |
 | `/grade set` | Attribue un grade à un membre | Manage Roles |

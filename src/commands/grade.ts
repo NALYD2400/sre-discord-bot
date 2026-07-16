@@ -7,7 +7,6 @@ import {
 import { Command } from '../types';
 
 const GRADES: { name: string; emoji: string }[] = [
-  { name: '🆕 Nouveau',      emoji: '🆕' },
   { name: '👤 Membre',       emoji: '👤' },
   { name: '⭐ Membre Actif', emoji: '⭐' },
   { name: '💬 Support',      emoji: '💬' },

@@ -6,12 +6,6 @@ export default {
   async execute(member: GuildMember) {
     const guild = member.guild;
 
-    // Auto-rôle Nouveau
-    const newRole = guild.roles.cache.find(r => r.name === '🆕 Nouveau');
-    if (newRole) {
-      await member.roles.add(newRole).catch(console.error);
-    }
-
     // Message de bienvenue
     const configuredWelcomeChannel = process.env.WELCOME_CHANNEL_ID
       ? guild.channels.cache.get(process.env.WELCOME_CHANNEL_ID)

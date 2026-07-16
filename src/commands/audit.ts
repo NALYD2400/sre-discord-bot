@@ -20,7 +20,6 @@ const REQUIRED_ROLES = [
   '💬 Support',
   '⭐ Membre Actif',
   '👤 Membre',
-  '🆕 Nouveau',
 ];
 
 const REQUIRED_CATEGORIES = [
@@ -57,6 +56,7 @@ const DANGEROUS_PERMISSIONS: Array<[bigint, string]> = [
   [PermissionFlagsBits.ManageWebhooks, 'Gérer les webhooks'],
   [PermissionFlagsBits.MentionEveryone, 'Mentionner everyone'],
   [PermissionFlagsBits.CreateGuildExpressions, 'Créer des expressions'],
+  [PermissionFlagsBits.ManageGuildExpressions, 'Gérer les expressions'],
 ];
 
 const BOT_REQUIRED_PERMISSIONS: Array<[bigint, string]> = [
@@ -100,6 +100,9 @@ const command: Command = {
     for (const roleName of REQUIRED_ROLES) {
       if (!guild.roles.cache.some((role) => role.name === roleName)) issues.push(`Rôle manquant : ${roleName}`);
     }
+    if (guild.roles.cache.some((role) => role.name === '🆕 Nouveau')) {
+      issues.push('Le rôle obsolète 🆕 Nouveau doit être supprimé');
+    }
     for (const name of duplicateNames(guild.roles.cache.map((role) => role.name))) {
       issues.push(`Rôle en double : ${name}`);
     }
@@ -122,7 +125,7 @@ const command: Command = {
 
     const managedRoleNames = new Set([
       '💻 Développeur', '🎨 Designer', '🧪 Testeur Bêta', '💎 SR Premium', '🚀 SR Pro',
-      '⚡ SR Standard', '💬 Support', '⭐ Membre Actif', '👤 Membre', '🆕 Nouveau',
+      '⚡ SR Standard', '💬 Support', '⭐ Membre Actif', '👤 Membre',
     ]);
     const unmanageableRoles = guild.roles.cache.filter((role) =>
       managedRoleNames.has(role.name) && role.position >= botMember.roles.highest.position
@@ -144,7 +147,6 @@ const command: Command = {
     }
 
     const memberRole = guild.roles.cache.find((role) => role.name === '👤 Membre');
-    const newRole = guild.roles.cache.find((role) => role.name === '🆕 Nouveau');
     const moderatorRole = guild.roles.cache.find((role) => role.name === '🛡️ Modérateur');
     const categoryRoles = [adminRole, moderatorRole].filter((role) => role !== undefined);
     for (const categoryName of REQUIRED_CATEGORIES) {
@@ -154,14 +156,8 @@ const command: Command = {
       if (!category || category.type !== ChannelType.GuildCategory) continue;
 
       const everyoneOverwrite = category.permissionOverwrites.cache.get(guild.roles.everyone.id);
-      const isInformation = categoryName === '📢 INFORMATIONS';
       const isModeration = categoryName === '🔒 MODÉRATION';
-      if (isInformation) {
-        if (!everyoneOverwrite?.allow.has(PermissionFlagsBits.ViewChannel)
-          || !everyoneOverwrite.deny.has(PermissionFlagsBits.SendMessages)) {
-          issues.push(`${categoryName} : @everyone doit voir sans pouvoir écrire`);
-        }
-      } else if (!everyoneOverwrite?.deny.has(PermissionFlagsBits.ViewChannel)) {
+      if (!everyoneOverwrite?.deny.has(PermissionFlagsBits.ViewChannel)) {
         issues.push(`${categoryName} : accès @everyone non bloqué`);
       }
 
@@ -171,13 +167,44 @@ const command: Command = {
         }
       }
 
-      if (!isInformation && !isModeration) {
+      if (!isModeration) {
         if (memberRole && !category.permissionOverwrites.cache.get(memberRole.id)?.allow.has(PermissionFlagsBits.ViewChannel)) {
           issues.push(`${categoryName} : accès Membre manquant`);
         }
-        if (newRole && !category.permissionOverwrites.cache.get(newRole.id)?.deny.has(PermissionFlagsBits.ViewChannel)) {
-          issues.push(`${categoryName} : accès Nouveau non bloqué`);
+      }
+    }
+
+    const rulesChannel = guild.channels.cache.find((channel) => channel.name === '📜・règlement');
+    if (rulesChannel && 'permissionOverwrites' in rulesChannel) {
+      const everyoneRules = rulesChannel.permissionOverwrites.cache.get(guild.roles.everyone.id);
+      if (!everyoneRules?.allow.has(PermissionFlagsBits.ViewChannel)
+        || !everyoneRules.allow.has(PermissionFlagsBits.ReadMessageHistory)
+        || !everyoneRules.deny.has(PermissionFlagsBits.SendMessages)) {
+        issues.push('📜・règlement : @everyone doit uniquement voir et lire');
+      }
+    }
+
+    const privateChannelNames = new Set(['📜・règlement', '📋・statut-tickets']);
+    for (const channel of guild.channels.cache.values()) {
+      if (channel.type === ChannelType.GuildCategory || channel.isThread()) continue;
+      const everyoneChannel = channel.permissionOverwrites.cache.get(guild.roles.everyone.id);
+      if (channel.name !== '📜・règlement'
+        && everyoneChannel?.allow.has(PermissionFlagsBits.ViewChannel)) {
+        issues.push(`${channel.name} : accès direct @everyone autorisé`);
+      }
+
+      if (channel.parentId === null) {
+        if (!everyoneChannel?.deny.has(PermissionFlagsBits.ViewChannel)) {
+          issues.push(`${channel.name} : salon hors catégorie visible avant règlement`);
         }
+        if (memberRole
+          && !channel.permissionOverwrites.cache.get(memberRole.id)?.allow.has(PermissionFlagsBits.ViewChannel)) {
+          issues.push(`${channel.name} : salon hors catégorie inaccessible aux Membres`);
+        }
+      } else if (REQUIRED_CHANNELS.includes(channel.name)
+        && !privateChannelNames.has(channel.name)
+        && channel.permissionsLocked === false) {
+        warnings.push(`${channel.name} : permissions non synchronisées avec sa catégorie`);
       }
     }
 
