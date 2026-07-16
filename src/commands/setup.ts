@@ -340,20 +340,23 @@ const command: Command = {
           .setImage('https://i.imgur.com/AfFp7pu.png')
           .setTimestamp();
 
-        await accueilChannel.send({ embeds: [welcomeEmbed] });
-        logs.push('✅ Message de bienvenue envoyé');
+        const messages = await accueilChannel.messages.fetch({ limit: 50 }).catch(() => null);
+        const existingWelcome = messages?.find((message) =>
+          message.author.id === interaction.client.user.id
+          && message.embeds.some((embed) => embed.title === '🎉 Bienvenue sur le serveur officiel SR Editer !')
+        );
+        if (existingWelcome) {
+          await existingWelcome.edit({ embeds: [welcomeEmbed] });
+          logs.push('⚙️ Message de bienvenue mis à jour');
+        } else {
+          await accueilChannel.send({ embeds: [welcomeEmbed] });
+          logs.push('✅ Message de bienvenue envoyé');
+        }
       }
 
       // ============= RÈGLEMENT & BOUTON RÔLE =============
       const reglementChannel = guild.channels.cache.find(c => c.name === '📜・règlement') as TextChannel | undefined;
       if (reglementChannel) {
-        try {
-          const messages = await reglementChannel.messages.fetch({ limit: 50 });
-          if (messages.size > 0) {
-            await reglementChannel.bulkDelete(messages);
-          }
-        } catch (e) {}
-
         const rulesEmbed = new EmbedBuilder()
           .setColor(0x5865F2)
           .setTitle('📜 Règlement du serveur SR Editer')
@@ -377,8 +380,18 @@ const command: Command = {
 
         const row = new ActionRowBuilder<ButtonBuilder>().addComponents(acceptButton);
 
-        await reglementChannel.send({ embeds: [rulesEmbed], components: [row] });
-        logs.push('✅ Message du règlement envoyé avec bouton');
+        const messages = await reglementChannel.messages.fetch({ limit: 50 }).catch(() => null);
+        const existingRules = messages?.find((message) =>
+          message.author.id === interaction.client.user.id
+          && message.embeds.some((embed) => embed.title === '📜 Règlement du serveur SR Editer')
+        );
+        if (existingRules) {
+          await existingRules.edit({ embeds: [rulesEmbed], components: [row] });
+          logs.push('⚙️ Message du règlement mis à jour');
+        } else {
+          await reglementChannel.send({ embeds: [rulesEmbed], components: [row] });
+          logs.push('✅ Message du règlement envoyé avec bouton');
+        }
       }
 
       // ============= RÉSUMÉ =============
