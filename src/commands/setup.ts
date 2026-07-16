@@ -17,6 +17,21 @@ import {
 } from 'discord.js';
 import { Command } from '../types';
 
+const SETUP_REQUIRED_PERMISSIONS: Array<[bigint, string]> = [
+  [PermissionFlagsBits.ViewChannel, 'Voir les salons'],
+  [PermissionFlagsBits.SendMessages, 'Envoyer des messages'],
+  [PermissionFlagsBits.EmbedLinks, 'Intégrer des liens'],
+  [PermissionFlagsBits.ReadMessageHistory, 'Voir l’historique des messages'],
+  [PermissionFlagsBits.ManageChannels, 'Gérer les salons'],
+  [PermissionFlagsBits.ManageRoles, 'Gérer les rôles'],
+];
+
+export function getMissingSetupPermissions(permissions: { has(permission: bigint): boolean }): string[] {
+  return SETUP_REQUIRED_PERMISSIONS
+    .filter(([permission]) => !permissions.has(permission))
+    .map(([, label]) => label);
+}
+
 const command: Command = {
   data: new SlashCommandBuilder()
     .setName('setup')
@@ -28,9 +43,24 @@ const command: Command = {
 
     const guild = interaction.guild!;
     const logs: string[] = [];
+    let setupStage = 'vérification des permissions du bot';
 
     try {
+      const botMember = await guild.members.fetchMe();
+      const missingPermissions = getMissingSetupPermissions(botMember.permissions);
+      if (missingPermissions.length) {
+        await interaction.editReply({
+          content:
+            '❌ **Setup bloqué avant toute modification.**\n' +
+            `Le rôle du bot **${botMember.displayName}** manque de : **${missingPermissions.join(', ')}**.\n\n` +
+            'Dans **Paramètres du serveur → Rôles**, active ces permissions sur le rôle du bot, ' +
+            'puis place-le sous Fondateur/Administrateur mais au-dessus des rôles qu’il doit gérer. Relance ensuite `/setup`.',
+        });
+        return;
+      }
+
       // ============= RÔLES =============
+      setupStage = 'création et mise à jour des rôles';
       const rolesConfig: {
         name: string;
         color: ColorResolvable;
@@ -117,12 +147,18 @@ const command: Command = {
         );
 
         if (!hierarchyIsCorrect) {
-          await guild.roles.setPositions(hierarchyRoles.map((role, index) => ({
-            role,
-            position: availablePositions[index],
-          })));
-          await guild.roles.fetch();
-          logs.push('⚙️ Hiérarchie mise à jour : Premium > Pro > Standard > Membre Actif > Membre');
+          setupStage = 'réorganisation des rôles d’abonnement';
+          try {
+            await guild.roles.setPositions(hierarchyRoles.map((role, index) => ({
+              role,
+              position: availablePositions[index],
+            })));
+            await guild.roles.fetch();
+            logs.push('⚙️ Hiérarchie mise à jour : Premium > Pro > Standard > Membre Actif > Membre');
+          } catch (error) {
+            console.warn('Setup subscription hierarchy skipped:', error);
+            logs.push('⚠️ Hiérarchie non modifiée : place le rôle du bot au-dessus de Premium, Pro, Standard, Membre Actif et Membre');
+          }
         } else {
           logs.push('⏭️ Hiérarchie des abonnements déjà correcte');
         }
@@ -133,6 +169,7 @@ const command: Command = {
       const adminRole   = guild.roles.cache.find(r => r.name === '🔧 Administrateur');
       const modRole     = guild.roles.cache.find(r => r.name === '🛡️ Modérateur');
       const everyoneRole = guild.roles.everyone;
+      setupStage = 'nettoyage des permissions générales';
       const obsoleteNewRole = guild.roles.cache.find(r => r.name === '🆕 Nouveau');
       if (obsoleteNewRole?.editable) {
         await obsoleteNewRole.delete('Rôle Nouveau supprimé : validation par règlement obligatoire');
@@ -254,6 +291,7 @@ const command: Command = {
 
       const memberRole  = guild.roles.cache.find(r => r.name === '👤 Membre');
 
+      setupStage = 'mise à jour des catégories et salons';
       for (const section of structure) {
         let category = guild.channels.cache.find(
           c => c.type === ChannelType.GuildCategory && c.name === section.category
@@ -445,6 +483,7 @@ const command: Command = {
 
       // Les salons Discord créés par défaut hors catégorie restent invisibles
       // jusqu'à l'obtention du rôle Membre.
+      setupStage = 'sécurisation des salons hors catégorie';
       const ungroupedChannels = guild.channels.cache.filter((channel) =>
         channel.type !== ChannelType.GuildCategory
         && !channel.isThread()
@@ -462,6 +501,7 @@ const command: Command = {
       }
 
       // ============= MESSAGE DE BIENVENUE =============
+      setupStage = 'mise à jour du message de bienvenue';
       await guild.channels.fetch();
       const accueilChannel = guild.channels.cache.find(c => c.name === '🏠・accueil') as TextChannel | undefined;
       if (accueilChannel) {
@@ -496,6 +536,7 @@ const command: Command = {
       }
 
       // ============= RÈGLEMENT & BOUTON RÔLE =============
+      setupStage = 'mise à jour du règlement';
       const reglementChannel = guild.channels.cache.find(c => c.name === '📜・règlement') as TextChannel | undefined;
       if (reglementChannel) {
         const rulesEmbed = new EmbedBuilder()
@@ -536,6 +577,7 @@ const command: Command = {
       }
 
       // ============= RÉSUMÉ =============
+      setupStage = 'envoi du résumé';
       const embed = new EmbedBuilder()
         .setColor(0x2ECC71)
         .setTitle('✅ Setup SR Editer terminé !')
@@ -547,8 +589,12 @@ const command: Command = {
 
     } catch (error) {
       console.error('Setup error:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      const permissionHint = message.includes('Missing Permissions')
+        ? '\n\nVérifie les permissions du rôle du bot et sa position dans la hiérarchie Discord.'
+        : '';
       await interaction.editReply({
-        content: `❌ Erreur pendant le setup: ${error instanceof Error ? error.message : String(error)}`,
+        content: `❌ Erreur pendant **${setupStage}** : ${message}${permissionHint}`,
       });
     }
   },
