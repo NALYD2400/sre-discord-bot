@@ -1,6 +1,6 @@
 import http, { IncomingMessage } from 'http';
 import { timingSafeEqual } from 'crypto';
-import type { Guild, Role } from 'discord.js';
+import type { Guild, GuildMember, Role } from 'discord.js';
 import { ExtendedClient } from './client';
 
 export type SubscriptionTier = 'free' | 'standard' | 'pro' | 'premium';
@@ -126,6 +126,10 @@ function roleForTier(guild: Guild, tier: Exclude<SubscriptionTier, 'free'>): Rol
     ?? null;
 }
 
+export async function fetchGuildMemberFresh(guild: Guild, discordId: string): Promise<GuildMember> {
+  return await guild.members.fetch({ user: discordId, force: true });
+}
+
 async function syncRoleForGuild(
   client: ExtendedClient,
   guildId: string,
@@ -137,7 +141,7 @@ async function syncRoleForGuild(
     const guild = await client.guilds.fetch(guildId);
     let member;
     try {
-      member = await guild.members.fetch(discordId);
+      member = await fetchGuildMemberFresh(guild, discordId);
     } catch (error) {
       if ((error as { code?: number }).code === 10007) {
         return { guild_id: guildId, status: 'not_member' };
@@ -151,6 +155,7 @@ async function syncRoleForGuild(
         ? guild.roles.cache.get(configuredMemberRoleId)
         : undefined) ?? guild.roles.cache.find((role) => role.name === '👤 Membre');
       if (!memberRole) throw new Error('Discord Member role is not configured.');
+      if (memberRole.id === guild.id) throw new Error('ROLE_MEMBER_ID cannot reference @everyone.');
       if (!member.roles.cache.has(memberRole.id)) {
         return { guild_id: guildId, status: 'rules_not_accepted' };
       }

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractBearerToken, secretsMatch, validateSyncPayload } from './health';
+import type { Guild } from 'discord.js';
+import { extractBearerToken, fetchGuildMemberFresh, secretsMatch, validateSyncPayload } from './health';
 
 test('extractBearerToken only accepts a non-empty Bearer token', () => {
   assert.equal(extractBearerToken('Bearer shared-secret'), 'shared-secret');
@@ -52,4 +53,22 @@ test('validateSyncPayload rejects malformed ids and tiers', () => {
     require_membership: 'yes',
   }).ok, false);
   assert.equal(validateSyncPayload(null).ok, false);
+});
+
+test('fetchGuildMemberFresh bypasses the Discord member cache', async () => {
+  let receivedOptions: unknown;
+  const expectedMember = { id: '123456789012345678' };
+  const guild = {
+    members: {
+      fetch: async (options: unknown) => {
+        receivedOptions = options;
+        return expectedMember;
+      },
+    },
+  } as unknown as Guild;
+
+  const member = await fetchGuildMemberFresh(guild, expectedMember.id);
+
+  assert.equal(member, expectedMember);
+  assert.deepEqual(receivedOptions, { user: expectedMember.id, force: true });
 });
