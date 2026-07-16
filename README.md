@@ -50,6 +50,7 @@ SYNC_SECRET_TOKEN=un_secret_long_et_aleatoire
 ROLE_STANDARD_ID=id_du_role_standard
 ROLE_PRO_ID=id_du_role_pro
 ROLE_PREMIUM_ID=id_du_role_premium
+ROLE_MEMBER_ID=id_du_role_membre_optionnel
 PORT=3000
 ```
 
@@ -73,6 +74,7 @@ Les tiers acceptés sont `free`, `standard`, `pro` et `premium`. `free` retire t
 les rôles payants. L'endpoint limite la taille du corps, valide le snowflake Discord
 et renvoie une erreur HTTP si Discord n'a pas pu appliquer les rôles. Quand
 `require_membership` vaut `true`, le compte doit aussi être membre de `GUILD_ID`.
+Il doit également posséder le rôle `👤 Membre`, obtenu après acceptation du règlement.
 
 ## 📋 Commandes
 

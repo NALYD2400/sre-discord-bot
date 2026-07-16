@@ -17,7 +17,7 @@ type ValidationResult =
 
 type GuildSyncResult = {
   guild_id: string;
-  status: 'synced' | 'not_member' | 'error';
+  status: 'synced' | 'not_member' | 'rules_not_accepted' | 'error';
   error?: string;
 };
 
@@ -131,6 +131,7 @@ async function syncRoleForGuild(
   guildId: string,
   discordId: string,
   tier: SubscriptionTier,
+  requireMemberRole = false,
 ): Promise<GuildSyncResult> {
   try {
     const guild = await client.guilds.fetch(guildId);
@@ -142,6 +143,17 @@ async function syncRoleForGuild(
         return { guild_id: guildId, status: 'not_member' };
       }
       throw error;
+    }
+
+    if (requireMemberRole) {
+      const configuredMemberRoleId = process.env.ROLE_MEMBER_ID?.trim();
+      const memberRole = (configuredMemberRoleId
+        ? guild.roles.cache.get(configuredMemberRoleId)
+        : undefined) ?? guild.roles.cache.find((role) => role.name === '👤 Membre');
+      if (!memberRole) throw new Error('Discord Member role is not configured.');
+      if (!member.roles.cache.has(memberRole.id)) {
+        return { guild_id: guildId, status: 'rules_not_accepted' };
+      }
     }
 
     const paidTiers: Array<Exclude<SubscriptionTier, 'free'>> = ['standard', 'pro', 'premium'];
@@ -235,6 +247,7 @@ export function startHealthServer(
           guildId,
           validation.value.discord_id,
           validation.value.tier,
+          validation.value.require_membership && guildId === primaryGuildId,
         ));
       }
 
@@ -246,6 +259,15 @@ export function startHealthServer(
           success: false,
           code: 'DISCORD_MEMBERSHIP_REQUIRED',
           error: 'Discord server membership is required.',
+          results,
+        });
+        return;
+      }
+      if (validation.value.require_membership && primaryResult?.status === 'rules_not_accepted') {
+        sendJson(res, 403, {
+          success: false,
+          code: 'DISCORD_RULES_REQUIRED',
+          error: 'Discord server rules must be accepted first.',
           results,
         });
         return;
