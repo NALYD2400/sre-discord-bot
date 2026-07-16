@@ -8,6 +8,7 @@ export type SubscriptionTier = 'free' | 'standard' | 'pro' | 'premium';
 type SyncPayload = {
   discord_id: string;
   tier: SubscriptionTier;
+  require_membership: boolean;
 };
 
 type ValidationResult =
@@ -51,6 +52,7 @@ export function validateSyncPayload(input: unknown): ValidationResult {
   const data = input as Record<string, unknown>;
   const discordId = typeof data.discord_id === 'string' ? data.discord_id.trim() : '';
   const tier = typeof data.tier === 'string' ? data.tier : '';
+  const requireMembership = data.require_membership ?? false;
 
   if (!DISCORD_ID_PATTERN.test(discordId)) {
     return { ok: false, error: 'discord_id must be a valid Discord snowflake.' };
@@ -58,7 +60,17 @@ export function validateSyncPayload(input: unknown): ValidationResult {
   if (!VALID_TIERS.has(tier as SubscriptionTier)) {
     return { ok: false, error: 'tier must be free, standard, pro, or premium.' };
   }
-  return { ok: true, value: { discord_id: discordId, tier: tier as SubscriptionTier } };
+  if (typeof requireMembership !== 'boolean') {
+    return { ok: false, error: 'require_membership must be a boolean.' };
+  }
+  return {
+    ok: true,
+    value: {
+      discord_id: discordId,
+      tier: tier as SubscriptionTier,
+      require_membership: requireMembership,
+    },
+  };
 }
 
 function sendJson(
@@ -204,10 +216,15 @@ export function startHealthServer(
         return;
       }
 
-      const guildIds = [process.env.GUILD_ID, process.env.BACKUP_GUILD_ID]
-        .filter((guildId): guildId is string => Boolean(guildId));
+      const primaryGuildId = process.env.GUILD_ID?.trim();
+      const guildIds = [...new Set([primaryGuildId, process.env.BACKUP_GUILD_ID?.trim()]
+        .filter((guildId): guildId is string => Boolean(guildId)))];
       if (guildIds.length === 0) {
         sendJson(res, 503, { error: 'No Discord guild is configured.' });
+        return;
+      }
+      if (validation.value.require_membership && !primaryGuildId) {
+        sendJson(res, 503, { error: 'The primary Discord guild is not configured.' });
         return;
       }
 
@@ -219,6 +236,19 @@ export function startHealthServer(
           validation.value.discord_id,
           validation.value.tier,
         ));
+      }
+
+      const primaryResult = primaryGuildId
+        ? results.find((result) => result.guild_id === primaryGuildId)
+        : undefined;
+      if (validation.value.require_membership && primaryResult?.status === 'not_member') {
+        sendJson(res, 403, {
+          success: false,
+          code: 'DISCORD_MEMBERSHIP_REQUIRED',
+          error: 'Discord server membership is required.',
+          results,
+        });
+        return;
       }
 
       const failed = results.some((result) => result.status === 'error');

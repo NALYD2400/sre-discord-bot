@@ -13,11 +13,14 @@ export default {
     }
 
     // Message de bienvenue
-    const welcomeChannel = guild.channels.cache.find(
+    const configuredWelcomeChannel = process.env.WELCOME_CHANNEL_ID
+      ? guild.channels.cache.get(process.env.WELCOME_CHANNEL_ID)
+      : undefined;
+    const welcomeChannel = (configuredWelcomeChannel ?? guild.channels.cache.find(
       c => c.name === '🏠・accueil' || c.name === 'accueil'
-    ) as TextChannel | undefined;
+    )) as TextChannel | undefined;
 
-    if (!welcomeChannel) return;
+    if (!welcomeChannel?.isTextBased()) return;
 
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)

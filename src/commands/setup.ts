@@ -31,27 +31,61 @@ const command: Command = {
 
     try {
       // ============= RÔLES =============
-      const rolesConfig: { name: string; color: ColorResolvable; hoist: boolean; position: number }[] = [
-        { name: '👑 Fondateur',       color: '#FFD700', hoist: true,  position: 13 },
-        { name: '🔧 Administrateur',  color: '#E74C3C', hoist: true,  position: 12 },
-        { name: '🛡️ Modérateur',      color: '#E67E22', hoist: true,  position: 11 },
-        { name: '💻 Développeur',     color: '#3498DB', hoist: true,  position: 10 },
-        { name: '🎨 Designer',        color: '#9B59B6', hoist: true,  position: 9  },
-        { name: '🧪 Testeur Bêta',    color: '#1ABC9C', hoist: true,  position: 8  },
-        { name: '💎 SR Premium',      color: '#FF69B4', hoist: true,  position: 7  },
-        { name: '🚀 SR Pro',          color: '#1E90FF', hoist: true,  position: 6  },
-        { name: '⚡ SR Standard',     color: '#00FFFF', hoist: true,  position: 5  },
-        { name: '💬 Support',         color: '#2ECC71', hoist: false, position: 4  },
-        { name: '⭐ Membre Actif',    color: '#F39C12', hoist: false, position: 3  },
-        { name: '👤 Membre',          color: '#95A5A6', hoist: false, position: 2  },
-        { name: '🆕 Nouveau',         color: '#7F8C8D', hoist: false, position: 1  },
+      const rolesConfig: {
+        name: string;
+        color: ColorResolvable;
+        hoist: boolean;
+        permissions?: bigint[];
+      }[] = [
+        { name: '👑 Fondateur',       color: '#FFD700', hoist: true },
+        {
+          name: '🔧 Administrateur',
+          color: '#E74C3C',
+          hoist: true,
+          permissions: [PermissionFlagsBits.Administrator],
+        },
+        {
+          name: '🛡️ Modérateur',
+          color: '#E67E22',
+          hoist: true,
+          permissions: [
+            PermissionFlagsBits.ViewAuditLog,
+            PermissionFlagsBits.ManageChannels,
+            PermissionFlagsBits.ManageMessages,
+            PermissionFlagsBits.ManageRoles,
+            PermissionFlagsBits.ManageNicknames,
+            PermissionFlagsBits.KickMembers,
+            PermissionFlagsBits.BanMembers,
+            PermissionFlagsBits.ModerateMembers,
+          ],
+        },
+        { name: '💻 Développeur',     color: '#3498DB', hoist: true },
+        { name: '🎨 Designer',        color: '#9B59B6', hoist: true },
+        { name: '🧪 Testeur Bêta',    color: '#1ABC9C', hoist: true },
+        { name: '💎 SR Premium',      color: '#FF69B4', hoist: true },
+        { name: '🚀 SR Pro',          color: '#1E90FF', hoist: true },
+        { name: '⚡ SR Standard',     color: '#00FFFF', hoist: true },
+        { name: '💬 Support',         color: '#2ECC71', hoist: false },
+        { name: '⭐ Membre Actif',    color: '#F39C12', hoist: false },
+        { name: '👤 Membre',          color: '#95A5A6', hoist: false },
+        { name: '🆕 Nouveau',         color: '#7F8C8D', hoist: false },
       ];
 
       for (const roleConf of rolesConfig) {
         const existing = guild.roles.cache.find(r => r.name === roleConf.name);
         if (!existing) {
-          await guild.roles.create({ name: roleConf.name, color: roleConf.color, hoist: roleConf.hoist });
+          await guild.roles.create({
+            name: roleConf.name,
+            color: roleConf.color,
+            hoist: roleConf.hoist,
+            permissions: roleConf.permissions,
+          });
           logs.push(`✅ Rôle créé : ${roleConf.name}`);
+        } else if (roleConf.permissions && existing.editable) {
+          await existing.edit({ permissions: roleConf.permissions });
+          logs.push(`⚙️ Permissions du rôle mises à jour : ${roleConf.name}`);
+        } else if (roleConf.permissions && !existing.editable) {
+          logs.push(`⚠️ Rôle trop haut pour être corrigé par le bot : ${roleConf.name}`);
         } else {
           logs.push(`⏭️ Rôle existant : ${roleConf.name}`);
         }
@@ -191,9 +225,31 @@ const command: Command = {
         }
 
         for (const ch of section.channels) {
-          const existing = guild.channels.cache.find(c => c.name === ch.name);
+          const existing = guild.channels.cache.find(
+            c => c.name === ch.name && c.parentId === category.id
+          ) ?? guild.channels.cache.find(c => c.name === ch.name);
           if (existing) {
-            logs.push(`⏭️ Channel existant : ${ch.name}`);
+            const compatibleTypes = ch.type === ChannelType.GuildForum
+              ? [ChannelType.GuildForum, ChannelType.GuildText]
+              : ch.type === ChannelType.GuildStageVoice
+                ? [ChannelType.GuildStageVoice, ChannelType.GuildVoice]
+                : [ch.type];
+            if (!compatibleTypes.includes(existing.type)) {
+              logs.push(`⚠️ Type incorrect pour ${ch.name}; correction manuelle requise`);
+              continue;
+            }
+
+            if ('setParent' in existing && typeof existing.setParent === 'function') {
+              await existing.setParent(category.id, { lockPermissions: !ch.private });
+            }
+            if (ch.private && 'permissionOverwrites' in existing) {
+              await existing.permissionOverwrites.set([
+                { id: everyoneRole.id, deny: [PermissionFlagsBits.ViewChannel] },
+                ...(adminRole ? [{ id: adminRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+                ...(modRole ? [{ id: modRole.id, allow: [PermissionFlagsBits.ViewChannel] }] : []),
+              ]);
+            }
+            logs.push(`⚙️ Channel vérifié : ${ch.name}`);
             continue;
           }
 

@@ -15,6 +15,18 @@ import { createTicket, getTicket, closeTicket } from '../store';
 
 const TICKET_PREFIX = 'ticket-';
 
+function canManageTickets(interaction: ChatInputCommandInteraction | ButtonInteraction): boolean {
+  return interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels) ?? false;
+}
+
+function canCloseTicket(
+  interaction: ChatInputCommandInteraction | ButtonInteraction,
+  channel: TextChannel,
+): boolean {
+  const ticket = getTicket(channel.id);
+  return ticket?.userId === interaction.user.id || canManageTickets(interaction);
+}
+
 const command: Command = {
   data: new SlashCommandBuilder()
     .setName('ticket')
@@ -30,6 +42,13 @@ const command: Command = {
     const sub = interaction.options.getSubcommand();
 
     if (sub === 'panel') {
+      if (!canManageTickets(interaction)) {
+        await interaction.reply({
+          content: '❌ La permission Gérer les salons est requise pour publier le panel.',
+          ephemeral: true,
+        });
+        return;
+      }
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
         .setTitle('🎫 Support SR Editer')
@@ -57,6 +76,11 @@ const command: Command = {
         return;
       }
 
+      if (!canCloseTicket(interaction, channel)) {
+        await interaction.reply({ content: '❌ Seul le créateur du ticket ou le staff peut le fermer.', ephemeral: true });
+        return;
+      }
+
       const ticketData = getTicket(channel.id);
       if (ticketData) closeTicket(channel.id);
 
@@ -77,6 +101,11 @@ const command: Command = {
       const channel = interaction.channel as TextChannel;
       if (!channel.name.startsWith(TICKET_PREFIX)) {
         await interaction.reply({ content: '❌ Ce channel n\'est pas un ticket.', ephemeral: true });
+        return;
+      }
+
+      if (!canCloseTicket(interaction, channel)) {
+        await interaction.reply({ content: '❌ Seul le créateur du ticket ou le staff peut le fermer.', ephemeral: true });
         return;
       }
 
@@ -109,7 +138,9 @@ const command: Command = {
 
     const modRole = guild.roles.cache.find(r => r.name === '🛡️ Modérateur');
     const adminRole = guild.roles.cache.find(r => r.name === '🔧 Administrateur');
-    const ticketCategory = guild.channels.cache.find(c => c.name === '🎟️ TICKETS');
+    const ticketCategory = (process.env.TICKET_CATEGORY_ID
+      ? guild.channels.cache.get(process.env.TICKET_CATEGORY_ID)
+      : undefined) ?? guild.channels.cache.find(c => c.name === '🎟️ TICKETS');
 
     const ticketChannel = await guild.channels.create({
       name: `${TICKET_PREFIX}${user.username.toLowerCase().replace(/\s/g, '-')}`,

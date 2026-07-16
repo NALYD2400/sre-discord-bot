@@ -66,12 +66,13 @@ Supabase authentifiée. L'API attend :
 Authorization: Bearer <SYNC_SECRET_TOKEN>
 Content-Type: application/json
 
-{"discord_id":"123456789012345678","tier":"pro"}
+{"discord_id":"123456789012345678","tier":"pro","require_membership":true}
 ```
 
 Les tiers acceptés sont `free`, `standard`, `pro` et `premium`. `free` retire tous
 les rôles payants. L'endpoint limite la taille du corps, valide le snowflake Discord
-et renvoie une erreur HTTP si Discord n'a pas pu appliquer les rôles.
+et renvoie une erreur HTTP si Discord n'a pas pu appliquer les rôles. Quand
+`require_membership` vaut `true`, le compte doit aussi être membre de `GUILD_ID`.
 
 ## 📋 Commandes
 

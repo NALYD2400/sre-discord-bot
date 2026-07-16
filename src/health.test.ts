@@ -20,12 +20,36 @@ test('validateSyncPayload accepts known tiers and Discord snowflakes', () => {
     tier: 'premium',
   }), {
     ok: true,
-    value: { discord_id: '123456789012345678', tier: 'premium' },
+    value: {
+      discord_id: '123456789012345678',
+      tier: 'premium',
+      require_membership: false,
+    },
+  });
+});
+
+test('validateSyncPayload accepts an explicit membership requirement', () => {
+  assert.deepEqual(validateSyncPayload({
+    discord_id: '123456789012345678',
+    tier: 'free',
+    require_membership: true,
+  }), {
+    ok: true,
+    value: {
+      discord_id: '123456789012345678',
+      tier: 'free',
+      require_membership: true,
+    },
   });
 });
 
 test('validateSyncPayload rejects malformed ids and tiers', () => {
   assert.equal(validateSyncPayload({ discord_id: 'abc', tier: 'pro' }).ok, false);
   assert.equal(validateSyncPayload({ discord_id: '123456789012345678', tier: 'owner' }).ok, false);
+  assert.equal(validateSyncPayload({
+    discord_id: '123456789012345678',
+    tier: 'pro',
+    require_membership: 'yes',
+  }).ok, false);
   assert.equal(validateSyncPayload(null).ok, false);
 });
