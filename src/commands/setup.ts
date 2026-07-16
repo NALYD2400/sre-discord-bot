@@ -97,6 +97,39 @@ const command: Command = {
 
       await guild.roles.fetch();
 
+      const subscriptionHierarchy = [
+        '💎 SR Premium',
+        '🚀 SR Pro',
+        '⚡ SR Standard',
+        '⭐ Membre Actif',
+        '👤 Membre',
+      ];
+      const hierarchyRoles = subscriptionHierarchy
+        .map((name) => guild.roles.cache.find((role) => role.name === name))
+        .filter((role): role is Role => role !== undefined);
+
+      if (hierarchyRoles.length === subscriptionHierarchy.length && hierarchyRoles.every((role) => role.editable)) {
+        const availablePositions = hierarchyRoles
+          .map((role) => role.position)
+          .sort((left, right) => right - left);
+        const hierarchyIsCorrect = hierarchyRoles.every(
+          (role, index) => role.position === availablePositions[index]
+        );
+
+        if (!hierarchyIsCorrect) {
+          await guild.roles.setPositions(hierarchyRoles.map((role, index) => ({
+            role,
+            position: availablePositions[index],
+          })));
+          await guild.roles.fetch();
+          logs.push('⚙️ Hiérarchie mise à jour : Premium > Pro > Standard > Membre Actif > Membre');
+        } else {
+          logs.push('⏭️ Hiérarchie des abonnements déjà correcte');
+        }
+      } else {
+        logs.push('⚠️ Hiérarchie des abonnements non modifiable : vérifie les rôles et la position du bot');
+      }
+
       const adminRole   = guild.roles.cache.find(r => r.name === '🔧 Administrateur');
       const modRole     = guild.roles.cache.find(r => r.name === '🛡️ Modérateur');
       const everyoneRole = guild.roles.everyone;

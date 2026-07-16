@@ -78,6 +78,10 @@ export function duplicateNames(names: string[]): string[] {
   return [...counts.entries()].filter(([, count]) => count > 1).map(([name]) => name);
 }
 
+export function hasStrictlyDescendingPositions(positions: number[]): boolean {
+  return positions.every((position, index) => index === 0 || positions[index - 1] > position);
+}
+
 const command: Command = {
   data: new SlashCommandBuilder()
     .setName('audit')
@@ -105,6 +109,21 @@ const command: Command = {
     }
     for (const name of duplicateNames(guild.roles.cache.map((role) => role.name))) {
       issues.push(`Rôle en double : ${name}`);
+    }
+
+    const subscriptionHierarchy = [
+      '💎 SR Premium',
+      '🚀 SR Pro',
+      '⚡ SR Standard',
+      '⭐ Membre Actif',
+      '👤 Membre',
+    ];
+    const hierarchyRoles = subscriptionHierarchy
+      .map((name) => guild.roles.cache.find((role) => role.name === name))
+      .filter((role) => role !== undefined);
+    if (hierarchyRoles.length === subscriptionHierarchy.length
+      && !hasStrictlyDescendingPositions(hierarchyRoles.map((role) => role.position))) {
+      issues.push('Ordre des rôles incorrect : Premium > Pro > Standard > Membre Actif > Membre attendu');
     }
 
     const staffRoleNames = new Set(['👑 Fondateur', '🔧 Administrateur', '🛡️ Modérateur', botMember.roles.highest.name]);
