@@ -317,8 +317,15 @@ export function startHealthServer(
           embed.addFields({
             name: '💾 Téléchargement Direct',
             value: `[Télécharger l'installateur v${validation.value.version}](${validation.value.artifact_url})`,
+            inline: true,
           });
         }
+
+        embed.addFields({
+          name: '🌐 Documentation & Site',
+          value: '[Voir le changelog complet sur le site](https://sr-editer.vercel.app/docs.html#changelog)',
+          inline: true,
+        });
 
         const sentMessage = await targetChannel.send({ embeds: [embed] });
         sendJson(res, 200, {
