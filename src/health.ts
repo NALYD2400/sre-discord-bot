@@ -1,9 +1,19 @@
 import http, { IncomingMessage } from 'http';
 import { timingSafeEqual } from 'crypto';
-import type { Guild, GuildMember, Role } from 'discord.js';
+import { EmbedBuilder, TextChannel, type Guild, type GuildMember, type Role } from 'discord.js';
 import { ExtendedClient } from './client';
 
 export type SubscriptionTier = 'free' | 'standard' | 'pro' | 'premium';
+
+export type PatchnotePayload = {
+  version: string;
+  notes: string;
+  artifact_url?: string;
+};
+
+type PatchnoteValidationResult =
+  | { ok: true; value: PatchnotePayload }
+  | { ok: false; error: string };
 
 type SyncPayload = {
   discord_id: string;
@@ -69,6 +79,31 @@ export function validateSyncPayload(input: unknown): ValidationResult {
       discord_id: discordId,
       tier: tier as SubscriptionTier,
       require_membership: requireMembership,
+    },
+  };
+}
+
+export function validatePatchnotePayload(input: unknown): PatchnoteValidationResult {
+  if (!input || typeof input !== 'object') {
+    return { ok: false, error: 'JSON object required.' };
+  }
+  const data = input as Record<string, unknown>;
+  const version = typeof data.version === 'string' ? data.version.trim() : '';
+  const notes = typeof data.notes === 'string' ? data.notes.trim() : '';
+  const artifactUrl = typeof data.artifact_url === 'string' ? data.artifact_url.trim() : undefined;
+
+  if (!version) {
+    return { ok: false, error: 'version is required.' };
+  }
+  if (!notes) {
+    return { ok: false, error: 'notes is required.' };
+  }
+  return {
+    ok: true,
+    value: {
+      version,
+      notes,
+      artifact_url: artifactUrl,
     },
   };
 }
@@ -204,6 +239,98 @@ export function startHealthServer(
         uptime: Math.floor(process.uptime()),
         timestamp: new Date().toISOString(),
       });
+      return;
+    }
+
+    if (pathname === '/api/announce-patchnote' && req.method === 'POST') {
+      const token = extractBearerToken(req.headers.authorization);
+      if (!secretsMatch(token, process.env.SYNC_SECRET_TOKEN)) {
+        sendJson(res, 401, { error: 'Unauthorized.' });
+        return;
+      }
+      if (!req.headers['content-type']?.toLowerCase().startsWith('application/json')) {
+        sendJson(res, 415, { error: 'Content-Type must be application/json.' });
+        return;
+      }
+      if (!client.isReady()) {
+        sendJson(res, 503, { error: 'Discord client is not ready.' });
+        return;
+      }
+
+      try {
+        const validation = validatePatchnotePayload(await readJsonBody(req));
+        if (!validation.ok) {
+          sendJson(res, 400, { error: validation.error });
+          return;
+        }
+
+        const primaryGuildId = process.env.GUILD_ID?.trim();
+        if (!primaryGuildId) {
+          sendJson(res, 503, { error: 'The primary Discord guild is not configured.' });
+          return;
+        }
+
+        const guild = await client.guilds.fetch(primaryGuildId);
+        if (!guild) {
+          sendJson(res, 503, { error: 'Primary Discord guild not found.' });
+          return;
+        }
+
+        let targetChannel: TextChannel | null = null;
+        const configuredChannelId = process.env.PATCHNOTES_CHANNEL_ID?.trim();
+
+        if (configuredChannelId) {
+          try {
+            const fetched = await client.channels.fetch(configuredChannelId);
+            if (fetched && fetched.isTextBased() && 'send' in fetched) {
+              targetChannel = fetched as TextChannel;
+            }
+          } catch {
+            // channel not found by ID, fallback to search by name
+          }
+        }
+
+        if (!targetChannel) {
+          const channels = await guild.channels.fetch();
+          const textChannels = Array.from(channels.values()).filter(
+            (ch): ch is TextChannel => Boolean(ch && ch.isTextBased() && 'name' in ch && 'send' in ch),
+          );
+
+          targetChannel = textChannels.find((ch) =>
+            /patchnotes|mises?-a-jour|annonces|changelog/i.test(ch.name),
+          ) ?? null;
+        }
+
+        if (!targetChannel) {
+          sendJson(res, 404, { error: 'Patchnotes channel not found in Discord server.' });
+          return;
+        }
+
+        const embed = new EmbedBuilder()
+          .setTitle(`🚀 SR Editer v${validation.value.version} est disponible !`)
+          .setDescription(validation.value.notes)
+          .setColor(0x6366f1)
+          .setTimestamp()
+          .setFooter({ text: 'SR Editer • Patchnote officiel' });
+
+        if (validation.value.artifact_url) {
+          embed.addFields({
+            name: '💾 Téléchargement Direct',
+            value: `[Télécharger l'installateur v${validation.value.version}](${validation.value.artifact_url})`,
+          });
+        }
+
+        const sentMessage = await targetChannel.send({ embeds: [embed] });
+        sendJson(res, 200, {
+          success: true,
+          channel_id: targetChannel.id,
+          message_id: sentMessage.id,
+        });
+      } catch (error) {
+        const status = error instanceof HttpError ? error.status : 500;
+        const message = error instanceof Error ? error.message : 'Internal server error.';
+        sendJson(res, status, { error: message });
+      }
       return;
     }
 

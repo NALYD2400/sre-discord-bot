@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Guild } from 'discord.js';
-import { extractBearerToken, fetchGuildMemberFresh, secretsMatch, validateSyncPayload } from './health';
+import { extractBearerToken, fetchGuildMemberFresh, secretsMatch, validatePatchnotePayload, validateSyncPayload } from './health';
 
 test('extractBearerToken only accepts a non-empty Bearer token', () => {
   assert.equal(extractBearerToken('Bearer shared-secret'), 'shared-secret');
@@ -71,4 +71,23 @@ test('fetchGuildMemberFresh bypasses the Discord member cache', async () => {
 
   assert.equal(member, expectedMember);
   assert.deepEqual(receivedOptions, { user: expectedMember.id, force: true });
+});
+
+test('validatePatchnotePayload validates version and notes', () => {
+  assert.deepEqual(validatePatchnotePayload({
+    version: '0.4.3',
+    notes: '- Ajout des patchnotes automatiques',
+    artifact_url: 'https://github.com/releases/download/0.4.3/setup.exe',
+  }), {
+    ok: true,
+    value: {
+      version: '0.4.3',
+      notes: '- Ajout des patchnotes automatiques',
+      artifact_url: 'https://github.com/releases/download/0.4.3/setup.exe',
+    },
+  });
+
+  assert.equal(validatePatchnotePayload({ version: '', notes: 'notes' }).ok, false);
+  assert.equal(validatePatchnotePayload({ version: '0.4.3', notes: '' }).ok, false);
+  assert.equal(validatePatchnotePayload(null).ok, false);
 });
