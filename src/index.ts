@@ -48,6 +48,11 @@ for (const file of eventFiles) {
 }
 console.log(`⚡ ${eventFiles.length} événements enregistrés.`);
 
+// Écouter les Rate Limits Discord (HTTP 429)
+client.rest.on('rateLimited', (info) => {
+  console.warn(`⚠️ RATE LIMIT DISCORD (HTTP 429) ! Réessai dans ${info.timeToReset}ms sur la route ${info.route}`);
+});
+
 const rawToken = process.env.DISCORD_TOKEN?.trim().replace(/^["']|["']$/g, '');
 
 if (!rawToken) {
