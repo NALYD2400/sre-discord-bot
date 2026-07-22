@@ -40,4 +40,10 @@ for (const file of eventFiles) {
   }
 }
 
-client.login(process.env.DISCORD_TOKEN!);
+if (!process.env.DISCORD_TOKEN) {
+  console.error("❌ ERREUR CRITIQUE: La variable d'environnement DISCORD_TOKEN n'est pas définie sur Render !");
+} else {
+  client.login(process.env.DISCORD_TOKEN).catch((err) => {
+    console.error("❌ Échec de la connexion du bot à Discord (Token invalide ou problème réseau) :", err);
+  });
+}
