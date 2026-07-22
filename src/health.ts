@@ -297,8 +297,8 @@ export function startHealthServer(
           );
 
           targetChannel = textChannels.find((ch) =>
-            /patchnotes|mises?[-_]?[aà][-_]?jour|annonces|changelog/i.test(ch.name),
-          ) ?? null;
+            /patchnotes|mises?[-_]?[aà][-_]?jour|changelog/i.test(ch.name),
+          ) ?? textChannels.find((ch) => /annonces/i.test(ch.name)) ?? null;
         }
 
         if (!targetChannel) {
