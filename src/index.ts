@@ -1,3 +1,4 @@
+import dns from 'dns';
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
@@ -5,6 +6,11 @@ import { Collection } from 'discord.js';
 import client from './client';
 import { Command } from './types';
 import { startHealthServer } from './health';
+
+// Forcer la résolution IPv4 en premier (corrige le blocage DNS/IPv6 sur Node 17+ / Render)
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch {}
 
 // Démarrer le serveur HTTP pour UptimeRobot (Render free tier)
 startHealthServer(Number(process.env.PORT) || 3000, client);
@@ -42,11 +48,13 @@ for (const file of eventFiles) {
 }
 console.log(`⚡ ${eventFiles.length} événements enregistrés.`);
 
-if (!process.env.DISCORD_TOKEN) {
+const rawToken = process.env.DISCORD_TOKEN?.trim().replace(/^["']|["']$/g, '');
+
+if (!rawToken) {
   console.error("❌ ERREUR CRITIQUE: La variable d'environnement DISCORD_TOKEN n'est pas définie sur Render !");
 } else {
   console.log("🔑 Tentative de connexion à Discord...");
-  client.login(process.env.DISCORD_TOKEN)
+  client.login(rawToken)
     .then(() => console.log("🔑 Connexion Discord initialisée avec succès !"))
     .catch((err) => {
       console.error("❌ Échec de la connexion du bot à Discord :", err);
