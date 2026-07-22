@@ -322,8 +322,8 @@ export function startHealthServer(
         }
 
         embed.addFields({
-          name: '🌐 Documentation & Site',
-          value: '[Voir le changelog complet sur le site](https://sr-editer.vercel.app/docs.html#changelog)',
+          name: '🌐 Documentation & Blog',
+          value: '[Voir le changelog complet sur le blog](https://sr-editer.vercel.app/blog.html)',
           inline: true,
         });
 
