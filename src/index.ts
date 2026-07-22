@@ -23,6 +23,7 @@ for (const file of commandFiles) {
     client.commands.set(command.data.name, command);
   }
 }
+console.log(`📦 ${client.commands.size} commandes chargées.`);
 
 // Load events
 const eventsPath = path.join(__dirname, 'events');
@@ -39,11 +40,15 @@ for (const file of eventFiles) {
     client.on(name, (...args) => execute(...args, client));
   }
 }
+console.log(`⚡ ${eventFiles.length} événements enregistrés.`);
 
 if (!process.env.DISCORD_TOKEN) {
   console.error("❌ ERREUR CRITIQUE: La variable d'environnement DISCORD_TOKEN n'est pas définie sur Render !");
 } else {
-  client.login(process.env.DISCORD_TOKEN).catch((err) => {
-    console.error("❌ Échec de la connexion du bot à Discord (Token invalide ou problème réseau) :", err);
-  });
+  console.log("🔑 Tentative de connexion à Discord...");
+  client.login(process.env.DISCORD_TOKEN)
+    .then(() => console.log("🔑 Connexion Discord initialisée avec succès !"))
+    .catch((err) => {
+      console.error("❌ Échec de la connexion du bot à Discord :", err);
+    });
 }
