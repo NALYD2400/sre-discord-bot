@@ -14,7 +14,7 @@ startHealthServer(Number(process.env.PORT) || 3000, client);
 client.commands = new Collection<string, Command>();
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(f => {
-  return !f.endsWith('.d.ts') && (f.endsWith('.ts') || f.endsWith('.js'));
+  return !f.endsWith('.d.ts') && !f.includes('.test.') && !f.includes('.spec.') && (f.endsWith('.ts') || f.endsWith('.js'));
 });
 
 for (const file of commandFiles) {
@@ -27,7 +27,7 @@ for (const file of commandFiles) {
 // Load events
 const eventsPath = path.join(__dirname, 'events');
 const eventFiles = fs.readdirSync(eventsPath).filter(f => {
-  return !f.endsWith('.d.ts') && (f.endsWith('.ts') || f.endsWith('.js'));
+  return !f.endsWith('.d.ts') && !f.includes('.test.') && !f.includes('.spec.') && (f.endsWith('.ts') || f.endsWith('.js'));
 });
 
 for (const file of eventFiles) {
