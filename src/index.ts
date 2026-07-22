@@ -54,6 +54,20 @@ if (!rawToken) {
   console.error("❌ ERREUR CRITIQUE: La variable d'environnement DISCORD_TOKEN n'est pas définie sur Render !");
 } else {
   console.log("🔑 Tentative de connexion à Discord...");
+
+  // Test de connectivité préalable vers l'API Discord
+  const https = require('https');
+  const req = https.get('https://discord.com/api/v10/gateway', { timeout: 10000 }, (res: any) => {
+    console.log(`🌐 Test API Discord: HTTP ${res.statusCode}`);
+  });
+  req.on('error', (err: any) => {
+    console.error("❌ Test API Discord ERREUR RÉSEAU :", err.message);
+  });
+  req.on('timeout', () => {
+    req.destroy();
+    console.error("❌ Test API Discord TIMEOUT (10s)");
+  });
+
   client.login(rawToken)
     .then(() => console.log("🔑 Connexion Discord initialisée avec succès !"))
     .catch((err) => {

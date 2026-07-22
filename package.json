@@ -6,12 +6,12 @@
   "scripts": {
     "build": "tsc",
     "test": "npm run build && node --test dist/*.test.js dist/commands/*.test.js",
-    "start": "node dist/index.js",
+    "start": "node --dns-result-order=ipv4first dist/index.js",
     "dev": "ts-node src/index.ts",
     "deploy": "ts-node src/deploy-commands.ts",
     "watch": "tsc --watch",
     "render:build": "npm install && npm run build",
-    "render:start": "node dist/index.js"
+    "render:start": "node --dns-result-order=ipv4first dist/index.js"
   },
   "dependencies": {
     "discord.js": "^14.16.3",
