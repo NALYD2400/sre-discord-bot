@@ -19,6 +19,7 @@ type SyncPayload = {
   discord_id: string;
   tier: SubscriptionTier;
   require_membership: boolean;
+  user_access_token?: string;
 };
 
 type ValidationResult =
@@ -63,6 +64,7 @@ export function validateSyncPayload(input: unknown): ValidationResult {
   const discordId = typeof data.discord_id === 'string' ? data.discord_id.trim() : '';
   const tier = typeof data.tier === 'string' ? data.tier : '';
   const requireMembership = data.require_membership ?? false;
+  const userAccessToken = typeof data.user_access_token === 'string' ? data.user_access_token.trim() : undefined;
 
   if (!DISCORD_ID_PATTERN.test(discordId)) {
     return { ok: false, error: 'discord_id must be a valid Discord snowflake.' };
@@ -79,6 +81,7 @@ export function validateSyncPayload(input: unknown): ValidationResult {
       discord_id: discordId,
       tier: tier as SubscriptionTier,
       require_membership: requireMembership,
+      user_access_token: userAccessToken,
     },
   };
 }
@@ -171,17 +174,28 @@ async function syncRoleForGuild(
   discordId: string,
   tier: SubscriptionTier,
   requireMemberRole = false,
+  userAccessToken?: string,
 ): Promise<GuildSyncResult> {
   try {
     const guild = await client.guilds.fetch(guildId);
-    let member;
+    let member: GuildMember;
     try {
       member = await fetchGuildMemberFresh(guild, discordId);
     } catch (error) {
       if ((error as { code?: number }).code === 10007) {
-        return { guild_id: guildId, status: 'not_member' };
+        if (userAccessToken) {
+          try {
+            member = await guild.members.add(discordId, { accessToken: userAccessToken });
+          } catch (addErr) {
+            console.warn(`⚠️ Auto-join guild failed for user ${discordId}:`, addErr);
+            return { guild_id: guildId, status: 'not_member' };
+          }
+        } else {
+          return { guild_id: guildId, status: 'not_member' };
+        }
+      } else {
+        throw error;
       }
-      throw error;
     }
 
     if (requireMemberRole) {
@@ -387,6 +401,7 @@ export function startHealthServer(
           validation.value.discord_id,
           validation.value.tier,
           validation.value.require_membership && guildId === primaryGuildId,
+          validation.value.user_access_token,
         ));
       }
 
