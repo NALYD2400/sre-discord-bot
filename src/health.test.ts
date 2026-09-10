@@ -25,21 +25,24 @@ test('validateSyncPayload accepts known tiers and Discord snowflakes', () => {
       discord_id: '123456789012345678',
       tier: 'premium',
       require_membership: false,
+      user_access_token: undefined,
     },
   });
 });
 
-test('validateSyncPayload accepts an explicit membership requirement', () => {
+test('validateSyncPayload accepts an explicit membership requirement and user access token', () => {
   assert.deepEqual(validateSyncPayload({
     discord_id: '123456789012345678',
     tier: 'free',
     require_membership: true,
+    user_access_token: 'valid-oauth-token',
   }), {
     ok: true,
     value: {
       discord_id: '123456789012345678',
       tier: 'free',
       require_membership: true,
+      user_access_token: 'valid-oauth-token',
     },
   });
 });
